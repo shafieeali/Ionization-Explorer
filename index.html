@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1820" media="(prefers-color-scheme: dark)">
+<title>Ionization explorer: electron ionization vs chemical ionization</title>
+<style>:root{--ink:#1f2d3a;--navy:#163e63;--steel:#326b9e;--muted:#566676;--rule:#cfdbe6;--panel:#f1f5f9;--bg:#ffffff;--grid:#e6edf3;--eqr:#c62828;--good:#2f7d4f;--warn:#9a5f12;--alert:#b23a48;--sta:#d9822b;--film:rgba(217,130,43,.22);--support:#c9d1da;--partEdge:#a9b6c4;
+--c0:#1f6fb0;--c1:#9a7b00;--c2:#22806b;--c3:#7a4fc4;--c4:#b8601a;--c5:#8a5a44;--c6:#c2185b;--c7:#0f8fa8;--c8:#556b2f;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--ink:#e3eaf1;--navy:#a9cdf0;--steel:#7fb0dc;--muted:#9fb0c0;--rule:#34475a;--panel:#17232f;--bg:#0f1820;--grid:#1f2e3b;--eqr:#ff8a80;--good:#74cf98;--warn:#e7b066;--alert:#f0828f;--sta:#f0a85a;--film:rgba(240,168,90,.18);--support:#2a3947;--partEdge:#5b6e82;
+--c0:#7fb6ee;--c1:#e0c25a;--c2:#5cc4a8;--c3:#b99cf5;--c4:#eba45f;--c5:#d1a58f;--c6:#f48fb1;--c7:#5fd0e6;--c8:#b5cf7a;color-scheme:dark}}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Arial,Helvetica,sans-serif;overflow:hidden;-webkit-text-size-adjust:100%}
+button,select,input{font:inherit}:focus-visible{outline:2px solid var(--steel);outline-offset:2px}
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh;padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0)}
+header{display:flex;flex-wrap:wrap;row-gap:0;align-items:center;gap:8px;padding:6px 10px 7px;border-bottom:1px solid var(--rule);flex:0 0 auto}
+header .hrow{display:flex;align-items:center;gap:8px;width:100%}
+header .brand{flex:0 0 100%;font-size:.72rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px}
+header h1{flex:1 1 auto;min-width:0;font-size:1.02rem;margin:0;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:480px){header h1 .long{display:none}}
+header select.bigsel{border:1.5px solid var(--steel);border-radius:8px;background:var(--bg);color:var(--navy);padding:7px 8px;max-width:calc(100vw - 180px);font-size:.95rem;font-weight:700}
+@media (min-width:700px){header select.bigsel{min-width:240px;font-size:1.05rem;padding:8px 14px}}
+.btn{border:1px solid var(--steel);border-radius:6px;background:transparent;color:var(--navy);padding:5px 10px;cursor:pointer;font-size:.88rem}
+.btn:hover{background:var(--panel)}.btn[aria-pressed=true]{background:var(--navy);color:var(--bg);border-color:var(--navy)}
+.main{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+.left{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+.right{flex:0 0 auto;height:42%;min-height:190px;display:flex;flex-direction:column;border-top:1px solid var(--rule);background:var(--bg)}
+@media (max-height:700px){.right{height:40%}}
+@media (min-width:900px),(orientation:landscape) and (max-height:600px){.main{flex-direction:row}.right{height:auto;width:min(390px,40%);border-top:0;border-left:1px solid var(--rule)}}
+.right.collapsed{height:auto;min-height:0}.right.collapsed .pbody{display:none}.right.all #ptabs{display:none}
+.live{padding:6px 12px 4px;flex:0 0 auto}
+.live .l1{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
+.live .h{font-size:1.3rem;font-weight:700;color:var(--navy);font-variant-numeric:tabular-nums}
+.live .sub{font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.live .st{font-size:.82rem;font-weight:700;margin-left:auto}
+.live .l2{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:3px}
+.bar{display:flex;height:9px;border-radius:3px;overflow:hidden;background:var(--grid);margin:4px 0 2px}.bar span{display:block;height:100%}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:0}
+.seg{display:flex;gap:4px;padding:4px 10px;flex:0 0 auto;overflow-x:auto;scrollbar-width:none}.seg::-webkit-scrollbar{display:none}
+.seg button{flex:1 0 auto;border:1px solid var(--rule);background:var(--bg);color:var(--navy);border-radius:7px;padding:5px 9px;font-size:.86rem;cursor:pointer;white-space:nowrap}
+.seg button[aria-selected=true]{background:var(--navy);border-color:var(--navy);color:var(--bg)}
+.seg button .v{font-size:.72rem;opacity:.85;display:block;font-variant-numeric:tabular-nums}
+.seg .fold{flex:0 0 auto;min-width:40px;font-size:1rem}
+.stage{position:relative;flex:1 1 auto;min-height:170px;margin:0 10px 8px;border:1px solid var(--rule);border-radius:10px;overflow:hidden;background:var(--bg)}
+.view{position:absolute;inset:0;display:none}.view.on{display:flex;flex-direction:column}
+.fill{flex:1 1 auto;min-height:0;position:relative}
+svg.full,canvas.full{width:100%;height:100%;display:block}
+.ax{stroke:var(--muted);stroke-width:1}.gl{stroke:var(--grid);stroke-width:1}.tk{fill:var(--muted);font-size:11px}.axt{fill:var(--ink);font-size:12px}
+.halo{paint-order:stroke;stroke:var(--bg);stroke-width:4px;stroke-linejoin:round}
+.hint{position:absolute;left:52px;top:6px;font-size:.72rem;color:var(--muted);pointer-events:none;transition:opacity .3s}
+.ovl{position:absolute;font-size:.74rem;color:var(--muted);pointer-events:none}.ovl.tl{left:8px;top:6px;right:8px}
+.ovl.br{right:6px;bottom:6px;pointer-events:auto;display:flex;gap:4px}.ovl.br .btn{background:var(--bg);padding:3px 8px;font-size:.8rem}
+.mtop{display:flex;gap:6px;align-items:center;padding:5px 6px;flex:0 0 auto;overflow-x:auto;scrollbar-width:none}.mtop .sp{flex:1}
+.mtop .lab{font-size:.78rem;color:var(--muted);white-space:nowrap}
+.cap{position:absolute;left:6px;right:6px;bottom:6px;max-height:72%;overflow:auto;background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:8px 10px;font-size:.84rem;display:none}.cap.on{display:block}
+.scroll{overflow:auto;padding:8px 12px}
+.scroll table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:.84rem}
+.scroll th{font-weight:400;color:var(--muted);text-align:right;padding:4px;border-bottom:1px solid var(--rule)}
+.scroll td{padding:5px 4px;border-bottom:1px solid var(--rule);text-align:right}
+.scroll th:first-child,.scroll td:first-child{text-align:left}
+.scroll h3{font-size:.9rem;margin:10px 0 2px;color:var(--navy)}.scroll p{margin:6px 0;font-size:.86rem}
+.wrapx{overflow-x:auto}
+.pbody{flex:1 1 auto;min-height:0;overflow:auto;padding:2px 12px 10px}
+.row{margin:8px 0 4px}.row .top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.88rem}
+.row .val{border:1px dashed var(--steel);background:transparent;color:var(--ink);border-radius:5px;padding:1px 7px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;cursor:text;font-size:.88rem}
+.row input[type=range]{width:100%;accent-color:var(--steel);margin:4px 0 0;height:26px}
+.row input[type=text]{width:100%;padding:6px 8px;border:1px solid var(--steel);border-radius:6px;background:var(--bg);color:var(--ink);font-size:16px}
+.row select{width:100%;margin-top:4px;padding:6px 8px;border:1px solid var(--steel);border-radius:6px;background:var(--bg);color:var(--ink);font-size:16px}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin:5px 0}
+.eq{font-family:"Times New Roman",Times,serif;font-size:.95rem;color:var(--muted);margin:3px 0 0;line-height:1.35}
+.eq .r{color:var(--eqr);font-weight:700}.eq .n{font-family:Arial,Helvetica,sans-serif;font-size:.78rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.ptext{font-size:.8rem;color:var(--muted);margin:6px 0 4px}
+.info{font-size:.8rem;color:var(--muted);background:var(--panel);border-radius:6px;padding:6px 8px;margin:8px 0 2px}
+.warnbox{font-size:.8rem;color:var(--warn);font-weight:700;margin:4px 0}
+.chk{display:flex;gap:8px;align-items:center;font-size:.88rem;cursor:pointer;padding:5px 0}.chk input{width:19px;height:19px;accent-color:var(--steel)}
+.ghead{display:flex;justify-content:space-between;align-items:baseline;margin:14px 0 0;padding-top:8px;border-top:1px solid var(--rule)}
+.ghead:first-child{border-top:0;margin-top:4px}.ghead h2{font-size:.98rem;margin:0;color:var(--navy)}.ghead span{font-size:.82rem;font-weight:700;font-variant-numeric:tabular-nums}
+.forms{display:flex;gap:6px 14px;overflow-x:auto;padding:4px 8px 2px;flex:0 0 auto;scrollbar-width:none;border-bottom:1px solid var(--rule)}.forms::-webkit-scrollbar{display:none}
+.forms .fm{display:flex;flex-direction:column;align-items:center;flex:0 0 auto;font-size:.72rem;line-height:1.2;text-align:center}.forms .fm span{color:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;padding:10px;overflow:auto}
+.card{border:1px solid var(--rule);border-radius:8px;padding:9px 12px}.card h3{margin:0 0 2px;font-size:.95rem}.card p{margin:4px 0;font-size:.85rem}.card .cost{color:var(--muted)}
+.gauge{height:9px;background:var(--grid);border-radius:5px;overflow:hidden;margin:5px 0}.gauge span{display:block;height:100%}
+dialog{border:1px solid var(--rule);border-radius:12px;padding:0;max-width:660px;width:calc(100% - 20px);max-height:calc(100dvh - 40px);background:var(--bg);color:var(--ink)}
+dialog::backdrop{background:rgba(10,20,30,.45)}
+.dhead{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--rule);position:sticky;top:0;background:var(--bg)}
+.dhead h2{margin:0;font-size:1.05rem;color:var(--navy)}.dbody{padding:4px 16px 16px;font-size:.92rem}.dbody h3{font-size:.98rem;color:var(--navy);margin:14px 0 4px}.dbody p{margin:6px 0}.dbody .note{color:var(--muted);font-size:.85rem}
+.fallback{margin:auto;padding:20px;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">Interactive Chemistry · Ali Shafiee · University of Florida</div>
+    <div class="hrow"><h1>Ionization<span class="long"> explorer (EI vs CI)</span></h1>
+    
+    <button type="button" class="btn" id="guideBtn">Guide</button></div>
+  </header>
+  <div class="main">
+    <section class="left" aria-label="Results">
+      <div class="live" aria-live="polite"><div id="live"></div></div>
+      <div class="seg" role="tablist" aria-label="View" id="vtabs"></div>
+      <div class="stage" id="stage"><div class="view" id="v-src" role="tabpanel" aria-label="Ion source"><div class="mtop"><span class="lab">Inside the ion source (1 cm across)</span><span class="sp"></span><button type="button" class="btn" data-cap="scap" aria-expanded="false">Explain</button><button type="button" class="btn playbtn" aria-pressed="false">Pause</button></div><div class="fill"><canvas class="full" id="srcv" role="img" aria-label="Animation of molecules, electrons and ions in the ion source"></canvas><div class="cap" id="scap">Electrons from the hot filament cross the source. In <b>EI</b> the pressure is so low (λ of tens of meters) that analyte molecules are hit by electrons and never collide with anything else; a 70 eV electron leaves several eV of extra energy in M⁺•, so it often breaks apart (purple fragments). In <b>CI</b> the source is filled with reagent gas at about 1 torr; electrons ionize the abundant reagent (orange), and after many collisions the reagent ions hand a proton to the analyte (blue to red-ringed). Only the energy difference PA(M) − PA(B) is left in MH⁺, so it fragments far less. Lower the pressure in CI mode and watch collisions, and CI, disappear.</div></div></div><div class="view" id="v-spec" role="tabpanel" aria-label="Spectrum"><div class="forms" id="formsS"></div><div class="fill"><svg class="full" id="spsv" role="img" aria-label="Simulated mass spectrum"></svg></div></div><div class="view" id="v-energy" role="tabpanel" aria-label="Energy"><div class="fill"><svg class="full" id="ensv" role="img" aria-label="Excess energy deposited by each reagent ion"></svg></div></div><div class="view" id="v-press" role="tabpanel" aria-label="λ vs pressure"><div class="fill"><svg class="full" id="prsv" role="img" aria-label="Mean free path against pressure"></svg></div></div><div class="view" id="v-nums" role="tabpanel" aria-label="Numbers"><div class="scroll" id="nmb" style="flex:1"></div></div></div>
+    </section>
+    <section class="right" aria-label="Controls">
+      <div class="seg" role="tablist" aria-label="Control group" id="ptabs"><button type="button" class="fold" id="fold" aria-expanded="true" aria-label="Hide the controls to enlarge the view">▾</button></div>
+      <div class="pbody" id="pbody" role="tabpanel"></div>
+    </section>
+  </div>
+</div>
+<dialog id="guide" aria-labelledby="gTitle">
+  <div class="dhead"><h2 id="gTitle">Guide</h2><button type="button" class="btn" id="guideClose">Close</button></div>
+  <div class="dbody"><p class="note" style="margin-top:10px">Interactive Chemistry · Ali Shafiee · University of Florida</p><h3>What this tool shows</h3><p>Before a mass spectrometer can measure anything, it has to turn neutral molecules into ions. How that happens decides what the spectrum looks like. This tool compares the two classic gas-phase methods: electron ionization (EI) and chemical ionization (CI).</p>
+<h3>Pressure and mean free path</h3><p>The mean free path λ = k<sub>B</sub>T/(√2·π·d²·P) is the average distance a molecule travels between collisions. At EI pressures (about 10⁻⁶ torr) λ is tens of meters, so in a 1 cm source molecules essentially never collide. At CI pressures (about 1 torr) λ is tens of micrometers and every ion collides hundreds of times, which is what lets reagent ions react with the analyte.</p>
+<h3>Electron ionization: a hard method</h3><p>A 70 eV electron removes an electron from the analyte (M + e⁻ → M⁺• + 2e⁻) and leaves several eV of excess energy, so M⁺• often breaks into fragments. The fragment pattern is a fingerprint used for library searches; the molecular ion may be weak or missing. Below the ionization energy, nothing ionizes; 70 eV is used because the yield has leveled off there, which makes spectra reproducible.</p>
+<h3>Chemical ionization: a soft method</h3><p>Electrons ionize the reagent gas, which is present in huge excess. The reagent ions (CH₅⁺, t-C₄H₉⁺, NH₄⁺, H₃⁺) then transfer a proton to the analyte: BH⁺ + M → MH⁺ + B. The energy left in MH⁺ is the difference in proton affinities, PA(M) − PA(B). A reagent whose base has a low PA (H₂, CH₄) leaves a lot of energy and causes fragmentation; one with a high PA (isobutene, NH₃) is gentle and gives mostly [M+H]⁺. If PA(M) is below PA(B), proton transfer is uphill; with ammonia you then see the [M+NH₄]⁺ adduct instead. Argon works differently, by charge exchange (Ar⁺• + M → M⁺• + Ar), leaving RE − IE of energy, which is so much that spectra look EI-like.</p>
+<p class="note">Proton affinities and ionization energies are literature (NIST) values. EI spectra are simplified versions of the main library peaks. The fragmentation of MH⁺, the fraction of ions formed by CI at a given pressure, and the adduct intensities are simple models chosen to show the trends. The animation is not to scale.</p></div>
+</dialog>
+<script>
+(function(){
+'use strict';
+var $=function(id){return document.getElementById(id);};
+function clamp(x,a,b){return Math.max(a,Math.min(b,x));}
+function gauss(){var u=0,v=0;while(u===0)u=Math.random();while(v===0)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function sig(x,n){if(x===0)return '0';if(!isFinite(x))return '–';var a=Math.abs(x);if(a>=1e5)return Math.round(x).toLocaleString('en-US');var d=Math.max(0,n-1-Math.floor(Math.log10(a)));return x.toFixed(Math.min(d,6));}
+var SUPD={'-':'⁻','0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
+function sup(n){return String(n).split('').map(function(c){return SUPD[c]||c;}).join('');}
+function sci(x,d){if(x===0)return '0';var e=Math.floor(Math.log10(Math.abs(x))),m=x/Math.pow(10,e);var ms=m.toFixed(d==null?1:d);if(Math.abs(+ms)>=10){e++;ms=(m/10).toFixed(d==null?1:d);}return ms+' × 10'+sup(e);}
+function minus(s){return String(s).replace(/-/g,'−');}
+var NS='http://www.w3.org/2000/svg';
+function el(tag,a,txt){var e=document.createElementNS(NS,tag);for(var k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;return e;}
+function clearSvg(s){while(s.firstChild)s.removeChild(s.firstChild);}
+function niceStep(span,n){var raw=span/(n||5),p=Math.pow(10,Math.floor(Math.log10(raw))),m=raw/p;return (m<=1?1:m<=2?2:m<=2.5?2.5:m<=5?5:10)*p;}
+function gN(t,c,s){var z=(t-c)/s;return Math.exp(-0.5*z*z)/(s*2.5066283);}
+function R_(x){return '<span class="r">'+x+'</span>';}function N_(x){return '<span class="n">'+x+'</span>';}
+function svgSize(svg){var W=Math.max(200,svg.clientWidth),H=Math.max(120,svg.clientHeight);svg.setAttribute('viewBox','0 0 '+W+' '+H);clearSvg(svg);return [W,H];}
+var PAL={};function readPal(){var cs=getComputedStyle(document.documentElement);['ink','navy','steel','muted','rule','panel','bg','grid','eqr','good','warn','alert','sta','film','support','partEdge','c0','c1','c2','c3','c4','c5','c6','c7','c8'].concat(APP.pal||[]).forEach(function(k){PAL[k]=cs.getPropertyValue('--'+k).trim();});}
+function isDark(){return window.matchMedia('(prefers-color-scheme: dark)').matches;}
+/* ---------- controls ---------- */
+var EQ={},CTL={},running=!window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function addEq(box,id,fn){if(!fn)return;EQ[id]=fn;var d=document.createElement('div');d.className='eq';d.setAttribute('data-eq',id);box.appendChild(d);}
+function ctlSlider(box,o){
+  var row=document.createElement('div');row.className='row';row.innerHTML='<div class="top"><label for="s_'+o.id+'">'+o.label+'</label></div>';
+  var vb=document.createElement('button');vb.type='button';vb.className='val';vb.setAttribute('aria-label','Type a value for '+o.label.replace(/<[^>]+>/g,''));row.querySelector('.top').appendChild(vb);
+  addEq(row,o.id,o.eq);
+  var inp=document.createElement('input');inp.type='range';inp.id='s_'+o.id;
+  if(o.log){inp.min=Math.log10(o.min);inp.max=Math.log10(o.max);inp.step=0.005;}else{inp.min=o.min;inp.max=o.max;inp.step=o.step;}
+  row.appendChild(inp);
+  function show(){var v=o.get();vb.textContent=o.fmt(v);inp.value=o.log?Math.log10(v):v;inp.setAttribute('aria-valuetext',o.fmt(v));}
+  inp.addEventListener('input',function(){o.set(o.log?Math.pow(10,+inp.value):+inp.value);show();update(o.re);});
+  vb.addEventListener('click',function(){var ti=document.createElement('input');ti.type='text';ti.inputMode='decimal';ti.value=String(+o.get().toPrecision(4));
+    ti.setAttribute('aria-label',o.label.replace(/<[^>]+>/g,'')+' ('+o.min+' to '+o.max+')');ti.style.cssText='width:8em;padding:2px 6px;border:1px solid var(--steel);border-radius:5px;background:var(--bg);color:var(--ink);font-size:16px;text-align:right';
+    vb.replaceWith(ti);ti.focus();ti.select();var done=false;
+    function fin(a){if(done)return;done=true;if(a){var x=parseFloat(String(ti.value).replace('×10','e').replace(/\s/g,''));if(isFinite(x))o.set(clamp(x,o.min,o.max));}ti.replaceWith(vb);show();update(o.re);}
+    ti.addEventListener('blur',function(){fin(true);});ti.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();fin(true);}else if(e.key==='Escape')fin(false);});});
+  box.appendChild(row);show();CTL[o.id]={show:show};return row;
+}
+function ctlChips(box,o){
+  var row=document.createElement('div');row.className='row';row.innerHTML='<div class="top"><span>'+o.label+'</span></div>';
+  var ch=document.createElement('div');ch.className='chips';ch.setAttribute('role','group');ch.setAttribute('aria-label',o.label.replace(/<[^>]+>/g,''));
+  o.options.forEach(function(op){var b=document.createElement('button');b.type='button';b.className='btn';b.innerHTML=op[1];b.setAttribute('aria-pressed',o.get()===op[0]?'true':'false');
+    b.addEventListener('click',function(){o.set(op[0]);ch.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false');});if(o.rebuild)buildPanel();update(o.re);});ch.appendChild(b);});
+  row.appendChild(ch);addEq(row,o.id,o.eq);box.appendChild(row);return row;
+}
+function ctlSelect(box,o){
+  var row=document.createElement('div');row.className='row';row.innerHTML='<div class="top"><label for="q_'+o.id+'">'+o.label+'</label></div>';
+  var sel=document.createElement('select');sel.id='q_'+o.id;o.options.forEach(function(op){var x=document.createElement('option');x.value=op[0];x.textContent=op[1];sel.appendChild(x);});sel.value=o.get();
+  sel.addEventListener('change',function(){o.set(sel.value);if(o.rebuild)buildPanel();update(o.re);});row.appendChild(sel);addEq(row,o.id,o.eq);box.appendChild(row);return row;
+}
+function ctlCheck(box,o){var l=document.createElement('label');l.className='chk';l.innerHTML='<input type="checkbox"'+(o.get()?' checked':'')+'> '+o.label;l.querySelector('input').addEventListener('change',function(){o.set(this.checked);if(o.rebuild)buildPanel();update(o.re);});box.appendChild(l);return l;}
+function ctlText(box,o){var row=document.createElement('div');row.className='row';row.innerHTML='<div class="top"><label for="t_'+o.id+'">'+o.label+'</label><span class="warnbox" id="tw_'+o.id+'"></span></div>';
+  var t=document.createElement('input');t.type='text';t.id='t_'+o.id;t.value=o.get();t.autocapitalize='off';t.spellcheck=false;t.setAttribute('autocomplete','off');
+  t.addEventListener('input',function(){var err=o.set(t.value);$('tw_'+o.id).textContent=err||'';if(!err)update(o.re);});row.appendChild(t);addEq(row,o.id,o.eq);box.appendChild(row);CTL[o.id]={input:t};return row;}
+function ctlNote(box,html,cls){var p=document.createElement('p');p.className=cls||'ptext';p.innerHTML=html;box.appendChild(p);return p;}
+function refreshEq(){document.querySelectorAll('.eq[data-eq]').forEach(function(e){var f=EQ[e.getAttribute('data-eq')];if(f)e.innerHTML=f();});}
+/* ---------- panel ---------- */
+var pgroup=null,MQall=window.matchMedia('(min-width:900px) and (min-height:640px)');
+function buildPanel(){
+  var box=$('pbody'),all=MQall.matches,groups=APP.groups();box.innerHTML='';EQ={};CTL={};
+  if(!groups.some(function(g){return g.id===pgroup;}))pgroup=groups[0].id;
+  var tabs=$('ptabs');tabs.querySelectorAll('[role=tab]').forEach(function(b){b.remove();});
+  groups.forEach(function(g){var b=document.createElement('button');b.type='button';b.setAttribute('role','tab');b.setAttribute('data-p',g.id);b.setAttribute('aria-selected',g.id===pgroup?'true':'false');b.innerHTML=g.tab+'<span class="v" id="pv-'+g.id+'"></span>';
+    b.addEventListener('click',function(){pgroup=g.id;setFold(false);buildPanel();box.scrollTop=0;});tabs.insertBefore(b,$('fold'));});
+  document.querySelector('.right').classList.toggle('all',all);
+  if(all)groups.forEach(function(g){var hd=document.createElement('div');hd.className='ghead';hd.innerHTML='<h2>'+g.title+'</h2><span id="gh-'+g.id+'"></span>';box.appendChild(hd);g.render(box);});
+  else groups.filter(function(g){return g.id===pgroup;})[0].render(box);
+  var rb=document.createElement('button');rb.type='button';rb.className='btn';rb.style.marginTop='12px';rb.textContent='Reset all to defaults';
+  rb.addEventListener('click',function(){APP.reset();buildPanel();update(true);});box.appendChild(rb);
+  if(APP.S)refreshEq();if(APP.tabVals)APP.tabVals();
+}
+function tabVal(id,txt){var a=$('pv-'+id);if(a)a.textContent=txt;var b=$('gh-'+id);if(b)b.textContent=txt;}
+function setFold(c){var r=document.querySelector('.right');r.classList.toggle('collapsed',c);var f=$('fold');f.textContent=c?'▴':'▾';f.setAttribute('aria-expanded',c?'false':'true');f.setAttribute('aria-label',c?'Show the controls':'Hide the controls to enlarge the view');}
+/* ---------- views ---------- */
+var view=null;
+function V(){return APP.views.filter(function(v){return v.id===view;})[0];}
+function setView(id){view=id;document.querySelectorAll('#vtabs [role=tab]').forEach(function(b){b.setAttribute('aria-selected',b.getAttribute('data-view')===id?'true':'false');});
+  APP.views.forEach(function(v){$('v-'+v.id).classList.toggle('on',v.id===id);});var v=V();if(v.enter)v.enter();if(v.draw)v.draw();}
+function update(re){APP.compute();APP.live();refreshEq();if(APP.tabVals)APP.tabVals();var v=V();if(v){if(re&&v.reset)v.reset();if(v.draw)v.draw();}}
+var last=0;function loop(ts){if(!running)return;var dt=last?Math.min(0.05,(ts-last)/1000):0;last=ts;var v=V();if(!document.hidden&&v&&v.step){v.step(dt);if(v.draw)v.draw(true);}requestAnimationFrame(loop);}
+function setPlay(on){running=on;document.querySelectorAll('.playbtn').forEach(function(b){b.textContent=on?'Pause':'Play';b.setAttribute('aria-pressed',on?'false':'true');});if(on){last=0;requestAnimationFrame(loop);}}
+function boot(){
+  readPal();
+  var vt=$('vtabs');APP.views.forEach(function(v){var b=document.createElement('button');b.type='button';b.setAttribute('role','tab');b.setAttribute('data-view',v.id);b.textContent=v.label;b.addEventListener('click',function(){setView(v.id);});vt.appendChild(b);});
+  $('fold').addEventListener('click',function(){setFold(!document.querySelector('.right').classList.contains('collapsed'));});
+  document.querySelectorAll('.playbtn').forEach(function(b){b.addEventListener('click',function(){setPlay(!running);});});
+  var g=$('guide');$('guideBtn').addEventListener('click',function(){if(g.showModal)g.showModal();else g.setAttribute('open','');});
+  $('guideClose').addEventListener('click',function(){if(g.close)g.close();else g.removeAttribute('open');});g.addEventListener('click',function(e){if(e.target===g&&g.close)g.close();});
+  document.querySelectorAll('[data-cap]').forEach(function(b){b.addEventListener('click',function(){var c=$(b.getAttribute('data-cap')),on=!c.classList.contains('on');c.classList.toggle('on',on);b.setAttribute('aria-expanded',on?'true':'false');b.textContent=on?'Hide':'Explain';});});
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',function(){readPal();if(APP.theme)APP.theme();var v=V();if(v&&v.draw)v.draw();});
+  MQall.addEventListener('change',buildPanel);
+  new ResizeObserver(function(){var v=V();if(v){if(v.resize)v.resize();if(v.draw)v.draw();}}).observe($('stage'));
+  if(APP.init)APP.init();
+  APP.compute();buildPanel();APP.live();
+  var h=(location.hash||'').slice(1);setView(APP.views[0].id);if(h&&APP.hash)APP.hash(h);
+  if(running)requestAnimationFrame(loop);else setPlay(false);
+}
+
+var APP={pal:[]},VIEWS;
+/* line-angle structure engine: def = {a:[{x,y,l,li,ionOnly}], b:[[i,j,order,cx?,cy?,ionOnly?]]} ; y up, bond length 1 */
+var HEXV=[[0,1],[0.866,0.5],[0.866,-0.5],[0,-1],[-0.866,-0.5],[-0.866,0.5]];
+function ringA(lbl,dx,dy){dx=dx||0;dy=dy||0;return HEXV.map(function(p,i){return {x:p[0]+dx,y:p[1]+dy,l:(lbl&&lbl[i])||''};});}
+function ringB(o,cx,cy,arom){o=o||0;cx=cx||0;cy=cy||0;var b=[];for(var i=0;i<6;i++){var dbl=arom!==false&&i%2===0;b.push(dbl?[o+i,o+(i+1)%6,2,cx,cy]:[o+i,o+(i+1)%6,1]);}return b;}
+function molSVG(d,ion,s,col){
+  var A=d.a.filter(function(x){return ion||!x.ionOnly;}),pad=0.75,fs=Math.max(9,0.66*s);
+  var xs=A.map(function(a){return a.x;}),ys=A.map(function(a){return a.y;});
+  var x0=Math.min.apply(null,xs)-pad,x1=Math.max.apply(null,xs)+pad,y0=Math.min.apply(null,ys)-pad,y1=Math.max.apply(null,ys)+pad;
+  function P(a){return [(a.x-x0)*s,(y1-a.y)*s];}
+  var out='';
+  d.b.forEach(function(b){
+    if(b[5]&&!ion)return;
+    var A1=d.a[b[0]],A2=d.a[b[1]],p1=P(A1),p2=P(A2),dx=p2[0]-p1[0],dy=p2[1]-p1[1],L=Math.hypot(dx,dy),ux=dx/L,uy=dy/L,nx=-uy,ny=ux;
+    var l1=(ion&&A1.li)?A1.li:A1.l,l2=(ion&&A2.li)?A2.li:A2.l,c1=l1?0.42*s:0,c2=l2?0.42*s:0;
+    var q1=[p1[0]+ux*c1,p1[1]+uy*c1],q2=[p2[0]-ux*c2,p2[1]-uy*c2];
+    function ln(a,e){out+='<line x1="'+a[0].toFixed(1)+'" y1="'+a[1].toFixed(1)+'" x2="'+e[0].toFixed(1)+'" y2="'+e[1].toFixed(1)+'"/>';}
+    var ringD=b[2]===2&&b[3]!=null;
+    if(b[2]===2&&!ringD){var o=0.11*s;ln([q1[0]+nx*o,q1[1]+ny*o],[q2[0]+nx*o,q2[1]+ny*o]);ln([q1[0]-nx*o,q1[1]-ny*o],[q2[0]-nx*o,q2[1]-ny*o]);return;}
+    ln(q1,q2);
+    if(ringD){var cx0=(b[3]-x0)*s,cy0=(y1-b[4])*s,mx=(p1[0]+p2[0])/2,my=(p1[1]+p2[1])/2;if((cx0-mx)*nx+(cy0-my)*ny<0){nx=-nx;ny=-ny;}var o2=0.19*s,sh=0.17*L;
+      ln([q1[0]+nx*o2+ux*sh,q1[1]+ny*o2+uy*sh],[q2[0]+nx*o2-ux*sh,q2[1]+ny*o2-uy*sh]);}
+  });
+  var g='<g stroke="'+col+'" stroke-width="'+Math.max(1.2,s/9).toFixed(2)+'" stroke-linecap="round" fill="none">'+out+'</g>';
+  A.forEach(function(a){var lb=(ion&&a.li)?a.li:a.l;if(!lb)return;var p=P(a),ch=ion&&(a.li||a.ionOnly)&&/[⁺⁻+]/.test(lb);
+    g+='<text x="'+p[0].toFixed(1)+'" y="'+p[1].toFixed(1)+'" text-anchor="middle" dominant-baseline="central" font-family="Arial,Helvetica,sans-serif" font-size="'+fs.toFixed(1)+'" font-weight="'+(ch?'700':'400')+'" fill="'+(ch?'var(--eqr)':col)+'" style="paint-order:stroke;stroke:var(--bg);stroke-width:3px;stroke-linejoin:round">'+lb+'</text>';});
+  return {w:(x1-x0)*s,h:(y1-y0)*s,svg:g};
+}
+function molInline(d,ion,s,col){var m=molSVG(d,ion,s,col);return '<svg width="'+m.w.toFixed(0)+'" height="'+m.h.toFixed(0)+'" viewBox="0 0 '+m.w.toFixed(1)+' '+m.h.toFixed(1)+'" aria-hidden="true">'+m.svg+'</svg>';}
+function chain(n,dx,dy){var a=[];for(var i=0;i<n;i++)a.push({x:(dx||0)+i*0.866,y:(dy||0)+(i%2)*0.5});var b=[];for(i=1;i<n;i++)b.push([i-1,i,1]);return {a:a,b:b};}
+/* ===== data ===== */
+var KB=1.380649e-23,TORR=133.322,EV=96.485,LSRC=0.01;
+var GAS={CH4:{n:'Methane',ion:'CH₅⁺',pa:543.5,d:3.8e-10,M:16,ad:[[29,'[M+C₂H₅]⁺',0.08],[41,'[M+C₃H₅]⁺',0.03]],extra:'CH₄ also gives C₂H₅⁺ (PA of ethylene 680.5 kJ/mol), a milder reagent'},
+ H2:{n:'Hydrogen',ion:'H₃⁺',pa:422.3,d:2.9e-10,M:2,ad:[]},iC4:{n:'Isobutane',ion:'t-C₄H₉⁺',pa:802.1,d:5.0e-10,M:58,ad:[[57,'[M+C₄H₉]⁺',0.05]]},
+ NH3:{n:'Ammonia',ion:'NH₄⁺',pa:853.6,d:2.6e-10,M:17,ad:[[18,'[M+NH₄]⁺',0]]},Ar:{n:'Argon (charge exchange)',ion:'Ar⁺•',re:15.76,d:3.4e-10,M:40,ad:[]}};
+function A_(a,b){return {a:a,b:b};}
+var ANA={
+ ethanol:{n:'Ethanol',f:'C₂H₅OH',M:46,pa:776.4,ie:10.48,e0:130,frag:[[29,'C₂H₅⁺ (loss of H₂O)']],
+   ei:[[31,100,'CH₂OH⁺'],[45,51,'[M−H]⁺'],[29,30,'CHO⁺'],[27,24,'C₂H₃⁺'],[46,22,'M⁺•'],[26,8,''],[43,8,''],[15,6,'CH₃⁺']],
+   s:A_([{x:0,y:0},{x:0.866,y:0.5},{x:1.732,y:0,l:'OH',li:'OH₂⁺'}],[[0,1,1],[1,2,1]])},
+ acetone:{n:'Acetone',f:'(CH₃)₂CO',M:58,pa:812.0,ie:9.70,e0:210,frag:[[43,'CH₃CO⁺ (loss of CH₄)']],
+   ei:[[43,100,'CH₃CO⁺'],[58,64,'M⁺•'],[15,25,'CH₃⁺'],[42,8,''],[27,8,''],[59,3,'']],
+   s:A_([{x:0,y:0},{x:-0.866,y:-0.5},{x:0.866,y:-0.5},{x:0,y:1,l:'O',li:'OH⁺'}],[[0,1,1],[0,2,1],[0,3,2]])},
+ toluene:{n:'Toluene',f:'C₇H₈',M:92,pa:784.0,ie:8.83,e0:170,frag:[[91,'C₇H₇⁺ (loss of H₂)']],
+   ei:[[91,100,'C₇H₇⁺ tropylium'],[92,73,'M⁺•'],[65,12,'C₅H₅⁺'],[39,10,'C₃H₃⁺'],[63,6,''],[51,5,'']],
+   s:(function(){var a=ringA();a.push({x:0,y:2},{x:0,y:-2.05,l:'H⁺',ionOnly:true});return A_(a,ringB().concat([[0,6,1]]));})()},
+ etac:{n:'Ethyl acetate',f:'CH₃COOC₂H₅',M:88,pa:835.7,ie:10.01,e0:120,frag:[[61,'CH₃C(OH)₂⁺ (loss of C₂H₄)']],
+   ei:[[43,100,'CH₃CO⁺'],[29,25,'C₂H₅⁺'],[27,15,''],[45,14,'OC₂H₅⁺'],[61,13,'CH₃C(OH)₂⁺'],[70,12,''],[73,6,''],[88,8,'M⁺•']],
+   s:A_([{x:0,y:0},{x:0.866,y:0.5},{x:0.866,y:1.5,l:'O',li:'OH⁺'},{x:1.732,y:0,l:'O'},{x:2.598,y:0.5},{x:3.464,y:0}],[[0,1,1],[1,2,2],[1,3,1],[3,4,1],[4,5,1]])},
+ pyridine:{n:'Pyridine',f:'C₅H₅N',M:79,pa:930.0,ie:9.26,e0:300,frag:[[53,'loss of HCN']],
+   ei:[[79,100,'M⁺•'],[52,78,'C₄H₄⁺• (loss of HCN)'],[51,33,''],[50,20,''],[78,12,''],[53,6,'']],
+   s:(function(){var a=ringA(['N']);a[0].li='N⁺';a.push({x:0,y:2,l:'H',ionOnly:true});return A_(a,ringB().concat([[0,6,1,null,null,true]]));})()}
+};
+function D0(){return {mode:'CI',gas:'CH4',ana:'ethanol',P:1.0,T:200,eV:70};}
+var S=D0(),C={};
+function lam(P,d){return KB*(S.T+273.15)/(Math.SQRT2*Math.PI*d*d*P*TORR);}
+function compute(){
+  var a=ANA[S.ana],g=S.mode==='EI'?null:GAS[S.gas],d=g?g.d:3.7e-10;C.a=a;C.g=g;C.lam=lam(S.P,d);C.coll=LSRC/C.lam;
+  /* EI part: electron energy controls ionization efficiency and fragmentation */
+  var over=S.eV-a.ie;C.eff=over<=0?0:(1-Math.exp(-over/18));C.fragW=over<=0?0:clamp((S.eV-a.ie-1.5)/25,0,1);
+  var ei=a.ei.map(function(p){var isM=p[0]===a.M;return {mz:p[0],r:isM?p[1]:p[1]*C.fragW,l:p[2]};});
+  var mxe=Math.max.apply(null,ei.map(function(p){return p.r;}))||1;ei.forEach(function(p){p.r/=mxe;});C.eiSpec=ei;
+  if(S.mode==='EI'){C.spec=ei;C.eta=0;return;}
+  C.eta=1-Math.exp(-C.coll/3);
+  var ci=[],E;
+  if(g.re){E=(g.re-a.ie)*EV;C.E=E;ci=ei.map(function(p){var isM=p.mz===a.M;return {mz:p.mz,r:isM?p.r*0.6:p.r,l:p.l};});C.kind='Charge exchange: M⁺• with RE − IE';}
+  else{E=a.pa-g.pa;C.E=E;
+    if(S.gas==='NH3'&&E<0){C.kind=E>-110?'Adduct [M+NH₄]⁺ (proton transfer is uphill)':'Almost no ionization (PA too low)';var yA=E>-110?1:0.1;ci=[{mz:a.M+18,r:yA,l:'[M+NH₄]⁺'}];}
+    else if(E<0){C.kind='Proton transfer is uphill: little MH⁺';ci=[{mz:a.M+1,r:0.15,l:'[M+H]⁺'}];g.ad.forEach(function(x){ci.push({mz:a.M+x[0],r:0.3,l:x[1]});});}
+    else{var f=1/(1+Math.exp(-(E+20-a.e0)/35));C.f=f;C.kind='Proton transfer: [M+H]⁺';ci=[{mz:a.M+1,r:1-f,l:'[M+H]⁺'}];a.frag.forEach(function(x){ci.push({mz:x[0],r:f,l:x[1]});});
+      g.ad.forEach(function(x){if(x[2])ci.push({mz:a.M+x[0],r:x[2],l:x[1]});});}}
+  var mxc=Math.max.apply(null,ci.map(function(p){return p.r;}))||1;ci.forEach(function(p){p.r/=mxc;});
+  var mix={};function add(p,w){var k=p.mz;if(!mix[k])mix[k]={mz:k,r:0,l:p.l};mix[k].r+=p.r*w;if(!mix[k].l)mix[k].l=p.l;}
+  ci.forEach(function(p){add(p,C.eta);});ei.forEach(function(p){add(p,1-C.eta);});
+  var sp=Object.keys(mix).map(function(k){return mix[k];}),mx=Math.max.apply(null,sp.map(function(p){return p.r;}))||1;sp.forEach(function(p){p.r/=mx;});C.spec=sp.filter(function(p){return p.r>0.004;});
+}
+function anaInline(ion,s){return molInline(C.a.s,ion,s,'var(--c0)');}
+APP.live=function(){var a=C.a,base=C.spec.reduce(function(x,y){return y.r>x.r?y:x;});
+  var soft=S.mode==='CI'&&C.eta>0.5&&!(C.g&&C.g.re)&&(C.f==null||C.f<0.5)&&C.E>=0;
+  $('live').innerHTML='<div class="l1"><span class="h">'+(S.mode==='EI'?'EI':'CI · '+C.g.n.split(' ')[0])+': base peak m/z '+base.mz+'</span><span class="sub">'+(base.l||'')+'</span><span class="st" style="color:'+(soft?'var(--good)':'var(--warn)')+'">'+(soft?'Soft ionization':'Hard: many fragments')+'</span></div>'
+   +'<div class="l2"><span>λ = '+fmtLen(C.lam)+'</span><span>'+sig(C.coll,2)+' collisions in 1 cm</span>'+(S.mode==='CI'?'<span>'+(C.g.re?'E = RE − IE':'E = PA(M) − PA(B)')+' = '+Math.round(C.E)+' kJ/mol</span>':'<span>'+S.eV+' eV electrons</span>')+'</div>';};
+function fmtLen(m){if(m>=1)return sig(m,2)+' m';if(m>=0.01)return sig(m*100,2)+' cm';if(m>=0.001)return sig(m*1000,2)+' mm';return sig(m*1e6,2)+' µm';}
+function fmtP(p){return p>=0.01?sig(p,2)+' torr':sci(p,1)+' torr';}
+APP.tabVals=function(){tabVal('src',fmtP(S.P));tabVal('gas',S.mode==='EI'?'none (EI)':C.g.ion);tabVal('ana',C.a.n);};
+APP.groups=function(){return [
+ {id:'src',tab:'Source',title:'Ion source',render:function(b){
+   ctlChips(b,{id:'mode',label:'Ionization mode',options:[['EI','Electron ionization (EI)'],['CI','Chemical ionization (CI)']],get:function(){return S.mode;},set:function(v){S.mode=v;S.P=v==='EI'?1e-6:1;},rebuild:true,
+     eq:function(){return S.mode==='EI'?'M + e⁻ → M⁺• + 2e⁻ (then M⁺• may fragment)':'reagent: B + e⁻ → … → BH⁺; then BH⁺ + M → MH⁺ + B';}});
+   ctlSlider(b,{id:'P',label:'Source pressure',min:1e-7,max:10,log:true,get:function(){return S.P;},set:function(v){S.P=v;},fmt:fmtP,
+     eq:function(){return 'λ = k<sub>B</sub>T / (√2·π·d²·'+R_('P')+')<br>'+N_('= '+fmtLen(C.lam)+'; collisions while crossing 1 cm = L/λ = '+sig(C.coll,2));}});
+   ctlSlider(b,{id:'T',label:'Source temperature',min:100,max:300,step:5,get:function(){return S.T;},set:function(v){S.T=v;},fmt:function(v){return v+' °C';},
+     eq:function(){return 'λ = k<sub>B</sub>'+R_('T')+' / (√2·π·d²·P)'+N_('  (T = '+(S.T+273)+' K)');}});
+   ctlSlider(b,{id:'eV',label:'Electron energy',min:5,max:100,step:1,get:function(){return S.eV;},set:function(v){S.eV=v;},fmt:function(v){return v+' eV';},
+     eq:function(){return 'ionizes only if '+R_('E<sub>e</sub>')+' > IE '+N_('('+C.a.ie+' eV for '+C.a.n.toLowerCase()+'); relative yield '+Math.round(C.eff*100)+'%, fragmentation '+Math.round(C.fragW*100)+'% of full');}});
+   ctlNote(b,'EI sources run near 10⁻⁶ torr with 70 eV electrons, where ion yield has leveled off so spectra are reproducible and comparable with libraries. CI sources run near 1 torr, so ions collide many times.');}},
+ {id:'gas',tab:'Reagent gas',title:'CI reagent gas',render:function(b){
+   if(S.mode==='EI'){ctlNote(b,'Electron ionization uses no reagent gas. Switch the mode to CI in the Source tab to choose one.','info');return;}
+   ctlChips(b,{id:'gas',label:'Reagent gas (its reagent ion)',options:Object.keys(GAS).map(function(k){return [k,GAS[k].n.split(' ')[0]+' → '+GAS[k].ion];}),get:function(){return S.gas;},set:function(v){S.gas=v;},
+     eq:function(){var g=C.g;return g.re?'E = '+R_('RE')+'(Ar⁺•) − IE(M)'+N_(' = '+g.re+' − '+C.a.ie+' = '+(g.re-C.a.ie).toFixed(2)+' eV = '+Math.round(C.E)+' kJ/mol'):'E = PA(M) − '+R_('PA(B)')+'<br>'+N_('= '+C.a.pa+' − '+g.pa+' = '+C.E.toFixed(1)+' kJ/mol'+(C.E<0?' (negative: proton transfer is uphill)':''));}});
+   ctlNote(b,'The lower the proton affinity of the reagent’s base B, the more energy is dumped into MH⁺ and the more it fragments. H₃⁺ is the hardest proton donor, NH₄⁺ the softest. '+(C.g.extra||''));}},
+ {id:'ana',tab:'Analyte',title:'Analyte',render:function(b){
+   ctlSelect(b,{id:'ana',label:'Analyte',options:Object.keys(ANA).map(function(k){return [k,ANA[k].n+', '+ANA[k].f+' (M = '+ANA[k].M+')'];}),get:function(){return S.ana;},set:function(v){S.ana=v;},rebuild:true,
+     eq:function(){return R_('PA(M)')+' = '+C.a.pa+' kJ/mol, '+R_('IE')+' = '+C.a.ie+' eV';}});
+   var d=document.createElement('div');d.className='row';d.innerHTML='<div class="top"><span>Neutral ⇌ protonated</span></div><div style="display:flex;align-items:center;gap:8px;margin-top:4px">'+anaInline(false,10)+'<span>⇌</span>'+anaInline(true,10)+'</div>';b.appendChild(d);
+   ctlNote(b,'Proton affinity (PA) is the energy released when the molecule picks up a proton; the proton goes to the most basic site (shown in red).');}}];};
+APP.S=true;APP.reset=function(){S=D0();compute();};APP.compute=compute;
+APP.hash=function(h){if(h==='pressure'){setView('press');}else if(h==='ci'){setView('energy');}};
+/* ===== views ===== */
+function bars(svg,peaks,x0,x1,opt){var wh=svgSize(svg),W=wh[0],H=wh[1],PL=34,PR=10,PT=opt.PT,PB=34;function X(m){return PL+(m-x0)/(x1-x0)*(W-PL-PR);}function Y(r){return H-PB-r*(H-PT-PB);}
+  var st=niceStep(x1-x0,W<420?5:8);for(var t=Math.ceil(x0/st)*st;t<=x1;t+=st){svg.appendChild(el('line',{x1:X(t),y1:PT,x2:X(t),y2:H-PB,'class':'gl'}));svg.appendChild(el('text',{x:X(t),y:H-PB+15,'text-anchor':'middle','class':'tk'},String(t)));}
+  [0,50,100].forEach(function(v){svg.appendChild(el('text',{x:PL-5,y:Y(v/100)+4,'text-anchor':'end','class':'tk'},String(v)));});
+  svg.appendChild(el('line',{x1:PL,y1:H-PB,x2:W-PR,y2:H-PB,'class':'ax'}));svg.appendChild(el('text',{x:(PL+W-PR)/2,y:H-3,'text-anchor':'middle','class':'axt'},'m/z'));
+  svg.appendChild(el('text',{transform:'translate(11,'+((PT+H-PB)/2)+') rotate(-90)','text-anchor':'middle','class':'axt'},'Relative abundance'));
+  var lab=[];peaks.slice().sort(function(a,b){return b.r-a.r;}).forEach(function(p){var x=X(p.mz);svg.appendChild(el('rect',{x:x-2,y:Y(p.r),width:4,height:Math.max(0.5,H-PB-Y(p.r)),fill:p.col||'var(--navy)'}));
+    if(p.r>0.08&&!lab.some(function(q){return Math.abs(q-x)<34;})){lab.push(x);svg.appendChild(el('text',{x:x,y:Y(p.r)-17,'text-anchor':'middle','font-size':11,'font-weight':'bold',fill:'var(--ink)','class':'halo'},String(p.mz)));if(p.l)svg.appendChild(el('text',{x:x,y:Y(p.r)-5,'text-anchor':'middle','font-size':10,fill:'var(--muted)','class':'halo'},p.l.length>18?p.l.slice(0,17)+'…':p.l));}});
+  return {X:X,Y:Y,W:W,H:H};}
+var ANI=null;
+VIEWS=[
+ {id:'src',label:'Ion source',enter:function(){aniInit();},reset:function(){aniInit();},step:function(dt){aniStep(dt);},draw:function(){aniDraw();}},
+ {id:'spec',label:'Spectrum',draw:function(){if(!$('v-spec').classList.contains('on'))return;var a=C.a,ci=S.mode==='CI'&&C.eta>0.5;
+   $('formsS').innerHTML='<div class="fm" style="color:var(--c0)">'+anaInline(false,window.innerWidth<480?8:10)+'<b>'+a.n+'</b><span>M = '+a.M+'</span></div><div class="fm" style="color:var(--c0);justify-content:center"><b style="font-size:1rem">→</b></div>'
+     +'<div class="fm" style="color:var(--c0)">'+(ci&&!C.g.re&&C.E>=0?anaInline(true,window.innerWidth<480?8:10)+'<b>[M+H]⁺</b><span>m/z '+(a.M+1)+'</span>':anaInline(false,window.innerWidth<480?8:10)+'<b>M⁺•</b><span>m/z '+a.M+' (one electron removed)</span>')+'</div>'
+     +'<div class="fm" style="max-width:15em;text-align:left;justify-content:center"><span>'+(S.mode==='EI'?'70 eV electrons leave a lot of excess energy, so M⁺• breaks apart.':(C.eta<0.5?'Too few collisions at this pressure: most ions still come from electron ionization.':C.kind))+'</span></div>';
+   var mx=Math.max(a.M+(S.mode==='CI'?60:15),60);bars($('spsv'),C.spec,10,Math.ceil(mx/10)*10,{PT:38});}},
+ {id:'energy',label:'Energy',draw:function(){if(!$('v-energy').classList.contains('on'))return;var svg=$('ensv'),wh=svgSize(svg),W=wh[0],H=wh[1],a=C.a,keys=Object.keys(GAS),PL=W<480?92:150,PR=14,PT=30,row=(H-PT-36)/keys.length,mx=700;
+   function X(e){return PL+clamp(e,0,mx)/mx*(W-PL-PR);}
+   for(var t=0;t<=mx;t+=100){svg.appendChild(el('line',{x1:X(t),y1:PT,x2:X(t),y2:H-36,'class':'gl'}));svg.appendChild(el('text',{x:X(t),y:H-22,'text-anchor':'middle','class':'tk'},String(t)));}
+   svg.appendChild(el('text',{x:(PL+W-PR)/2,y:H-6,'text-anchor':'middle','class':'axt'},'Excess energy left in the ion (kJ/mol)'));
+   svg.appendChild(el('line',{x1:X(a.e0),y1:PT-12,x2:X(a.e0),y2:H-36,stroke:'var(--eqr)','stroke-dasharray':'5 4','stroke-width':1.5}));
+   svg.appendChild(el('text',{x:X(a.e0)+5,y:PT-14,'font-size':11,fill:'var(--eqr)','class':'halo'},'≈ energy that fragments '+a.n.toLowerCase()+'H⁺ ('+a.e0+')'));
+   keys.forEach(function(k,i){var g=GAS[k],E=g.re?(g.re-a.ie)*EV:a.pa-g.pa,y=PT+i*row+row/2,cur=S.mode==='CI'&&k===S.gas;
+     svg.appendChild(el('text',{x:8,y:y-2,'font-size':12,'font-weight':cur?'bold':'normal',fill:'var(--ink)'},g.ion));svg.appendChild(el('text',{x:8,y:y+12,'font-size':10,fill:'var(--muted)'},g.re?'RE '+g.re+' eV':'PA(B) '+g.pa));
+     if(E<=0){svg.appendChild(el('text',{x:PL+4,y:y+4,'font-size':11,fill:'var(--muted)'},(k==='NH3'?'uphill by '+Math.round(-E)+': forms [M+NH₄]⁺ adduct':'uphill by '+Math.round(-E)+' kJ/mol: little MH⁺')));return;}
+     svg.appendChild(el('rect',{x:PL,y:y-9,width:Math.max(2,X(E)-PL),height:18,fill:E>a.e0?'var(--eqr)':'var(--c2)',opacity:cur?1:0.55,stroke:cur?'var(--ink)':'none'}));
+     var tx=X(E)+6,an='start';if(tx>W-90){tx=X(E)-6;an='end';}svg.appendChild(el('text',{x:tx,y:y+4,'text-anchor':an,'font-size':11,'font-weight':'bold',fill:an==='end'?'var(--bg)':'var(--ink)'},Math.round(E)+(E>mx?'+':'')));});}},
+ {id:'press',label:'λ vs pressure',draw:function(){if(!$('v-press').classList.contains('on'))return;var svg=$('prsv'),wh=svgSize(svg),W=wh[0],H=wh[1],PL=54,PR=12,PT=16,PB=36,d=C.g?C.g.d:3.7e-10;
+   function X(l){return PL+(l+7)/8*(W-PL-PR);}function Y(l){return H-PB-(l+6)/9*(H-PT-PB);}
+   var yS=Y(-2);svg.appendChild(el('rect',{x:PL,y:PT,width:W-PL-PR,height:yS-PT,fill:'var(--c2)',opacity:.07}));svg.appendChild(el('rect',{x:PL,y:yS,width:W-PL-PR,height:H-PB-yS,fill:'var(--c3)',opacity:.07}));
+   for(var i=-7;i<=1;i++){svg.appendChild(el('line',{x1:X(i),y1:PT,x2:X(i),y2:H-PB,'class':'gl'}));if(W>=420||i%2!==0)svg.appendChild(el('text',{x:X(i),y:H-PB+15,'text-anchor':'middle','class':'tk'},i===0?'1':(i===1?'10':'10'+sup(i))));}
+   var yl={'-6':'1 µm','-4':'100 µm','-2':'1 cm','0':'1 m','2':'100 m'};for(var j=-6;j<=3;j++){svg.appendChild(el('line',{x1:PL,y1:Y(j),x2:W-PR,y2:Y(j),'class':'gl'}));if(yl[j])svg.appendChild(el('text',{x:PL-5,y:Y(j)+4,'text-anchor':'end','class':'tk'},yl[j]));}
+   svg.appendChild(el('line',{x1:PL,y1:yS,x2:W-PR,y2:yS,stroke:'var(--muted)','stroke-dasharray':'6 4'}));svg.appendChild(el('text',{x:W-PR-4,y:yS-5,'text-anchor':'end','class':'tk'},'1 cm ion source'));
+   svg.appendChild(el('text',{x:W-PR-4,y:PT+14,'text-anchor':'end','font-size':11,fill:'var(--c2)'},'λ ≫ source: ions never collide (EI)'));svg.appendChild(el('text',{x:PL+6,y:H-PB-8,'font-size':11,fill:'var(--c3)'},'λ ≪ source: many collisions (CI)'));
+   var a0=Math.log10(lam(1e-7,d)),a1=Math.log10(lam(10,d));svg.appendChild(el('line',{x1:X(-7),y1:Y(a0),x2:X(1),y2:Y(a1),stroke:'var(--navy)','stroke-width':2.5}));
+   var lp=Math.log10(S.P),ll=Math.log10(C.lam);svg.appendChild(el('circle',{cx:X(lp),cy:Y(ll),r:7,fill:'none',stroke:'var(--eqr)','stroke-width':2.5}));
+   svg.appendChild(el('text',{transform:'translate(12,'+((PT+H-PB)/2)+') rotate(-90)','text-anchor':'middle','class':'axt'},'Mean free path, λ'));svg.appendChild(el('text',{x:(PL+W-PR)/2,y:H-3,'text-anchor':'middle','class':'axt'},'Pressure (torr)'));}},
+ {id:'nums',label:'Numbers',draw:function(){if(!$('v-nums').classList.contains('on'))return;var h='<table>';function r(a,b){h+='<tr><td>'+a+'</td><td>'+b+'</td></tr>';}
+   r('Mean free path, λ = k<sub>B</sub>T/(√2πd²P)',fmtLen(C.lam));r('Collisions crossing the 1 cm source, L/λ',sig(C.coll,3));if(S.mode==='CI'){r('Fraction of analyte ions made by CI (model)',Math.round(C.eta*100)+'%');r(C.g.re?'Energy left in M⁺•, RE − IE':'Energy left in MH⁺, PA(M) − PA(B)',Math.round(C.E)+' kJ/mol');if(C.f!=null)r('Fraction of MH⁺ that fragments (model)',Math.round(C.f*100)+'%');}
+   r('Analyte PA / IE',C.a.pa+' kJ/mol / '+C.a.ie+' eV');h+='</table><h3>Peaks</h3><table><tr><th>m/z</th><th>%</th><th>Ion</th></tr>';C.spec.slice().sort(function(a,b){return b.r-a.r;}).forEach(function(p){h+='<tr><td>'+p.mz+'</td><td>'+Math.round(p.r*100)+'</td><td style="text-align:left">'+(p.l||'')+'</td></tr>';});
+   $('nmb').innerHTML=h+'</table>';}}
+];
+APP.views=VIEWS;
+/* ===== ion source animation ===== */
+var cv=null,ctx=null,AW=600,AH=300;
+function aniSize(){cv=$('srcv');var r=cv.getBoundingClientRect();if(!r.width)return false;var d=Math.min(2,window.devicePixelRatio||1);AW=r.width;AH=r.height;cv.width=AW*d;cv.height=AH*d;ctx=cv.getContext('2d');ctx.setTransform(d,0,0,d,0,0);return true;}
+function aniInit(){if(!aniSize())return;var nGas=S.mode==='EI'?0:Math.round(clamp(6+28*(Math.log10(S.P)+7),0,220)),parts=[];
+  function rnd(t){return {x:50+Math.random()*(AW-100),y:40+Math.random()*(AH-90),vx:gauss()*40,vy:gauss()*40,t:t,life:0};}
+  for(var i=0;i<nGas;i++)parts.push(rnd('gas'));for(i=0;i<10;i++)parts.push(rnd('ana'));ANI={p:parts,e:[],te:0,mfp:Math.min(1,C.lam/LSRC),n:{ion:0,pt:0,frag:0},rnd:rnd};}
+function aniStep(dt){if(!ANI||!ctx)return;var A=ANI,x0=50,x1=AW-50,y0=40,y1=AH-50,mid=(y0+y1)/2;A.te+=dt;
+  if(A.te>0.05){A.te=0;A.e.push({x:x0,y:mid+gauss()*6});}
+  A.e.forEach(function(e){e.x+=520*dt;});A.e=A.e.filter(function(e){return e.x<x1&&!e.dead;});
+  A.p.forEach(function(p){
+    if(p.t==='aion'||p.t==='rion'||p.t==='frag'){p.life+=dt;}
+    if(p.t==='aion'||p.t==='frag'){p.vx+=180*dt;}
+    p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.y<y0||p.y>y1)p.vy=-p.vy;if(p.x<x0&&p.vx<0)p.vx=-p.vx;
+    if(p.x>x1){if(p.t==='aion'||p.t==='frag'){p.gone=true;}else p.vx=-Math.abs(p.vx);}});
+  A.e.forEach(function(e){A.p.forEach(function(p){if(e.dead||p.t==='aion'||p.t==='rion'||p.t==='frag')return;if(Math.abs(p.x-e.x)<6&&Math.abs(p.y-e.y)<7&&Math.random()<0.35){e.dead=true;
+      if(p.t==='gas'){p.t='rion';p.life=0;}else{p.t='aion';p.ei=true;p.life=0;A.n.ion++;if(Math.random()<C.fragW*0.75){p.t='frag';var q=A.rnd('frag');q.x=p.x;q.y=p.y;q.vx=p.vx+80;q.vy=p.vy+gauss()*80;A.p.push(q);A.n.frag++;}}}});});
+  if(S.mode==='CI'){A.p.forEach(function(r){if(r.t!=='rion')return;A.p.forEach(function(p){if(p.t!=='ana')return;if(Math.hypot(p.x-r.x,p.y-r.y)<8){r.t='gas';var up=C.g.re?false:C.E<0;
+      if(S.gas==='NH3'&&C.E<0&&C.E>-110){p.t='aion';p.adduct=true;p.life=0;A.n.pt++;return;}if(up&&Math.random()<0.85)return;
+      p.t='aion';p.ei=!!C.g.re;p.life=0;A.n.pt++;var ff=C.g.re?0.8:(C.f||0);if(Math.random()<ff){p.t='frag';var q=A.rnd('frag');q.x=p.x;q.y=p.y;q.vx=p.vx+80;q.vy=p.vy+gauss()*80;A.p.push(q);A.n.frag++;}}});});}
+  A.p=A.p.filter(function(p){return !p.gone;});var na=A.p.filter(function(p){return p.t==='ana';}).length;while(na<10){A.p.push(A.rnd('ana'));na++;}
+  A.p.forEach(function(p){if(p.t==='rion'&&p.life>2.5)p.t='gas';});}
+function aniDraw(){if(!ANI||!ctx)return;var A=ANI,x0=50,x1=AW-50,y0=40,y1=AH-50,mid=(y0+y1)/2;ctx.clearRect(0,0,AW,AH);
+  ctx.strokeStyle=PAL.muted;ctx.lineWidth=1.2;ctx.strokeRect(x0,y0-6,x1-x0,y1-y0+12);
+  ctx.strokeStyle=PAL.c4;ctx.lineWidth=2;ctx.beginPath();for(var i=0;i<6;i++){ctx.lineTo(x0-10+(i%2?6:0),mid-15+i*6);}ctx.stroke();
+  ctx.fillStyle=PAL.muted;ctx.font='11px Arial';ctx.fillText('filament',4,mid-20);ctx.fillText('to mass analyzer →',x1-100,y0-12);
+  ctx.fillStyle=PAL.c4;A.e.forEach(function(e){ctx.fillRect(e.x-1.5,e.y-1,3,2);});
+  A.p.forEach(function(p){var col={gas:PAL.support,ana:PAL.c0,rion:PAL.c4,aion:PAL.c0,frag:PAL.c3}[p.t];ctx.beginPath();ctx.arc(p.x,p.y,p.t==='gas'?2.6:4.2,0,Math.PI*2);
+    if(p.t==='aion'||p.t==='rion'||p.t==='frag'){ctx.fillStyle=PAL.bg;ctx.fill();ctx.strokeStyle=p.t==='rion'?PAL.c4:PAL.eqr;ctx.lineWidth=1.8;ctx.stroke();ctx.fillStyle=p.t==='rion'?PAL.c4:PAL.eqr;ctx.font='bold 8px Arial';ctx.textAlign='center';ctx.fillText('+',p.x,p.y+3);ctx.textAlign='left';}
+    else{ctx.fillStyle=col;ctx.fill();}});
+  var lpx=(C.lam/LSRC)*(x1-x0),yR=AH-22;ctx.strokeStyle=PAL.eqr;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x0,yR);ctx.lineTo(x0+Math.min(lpx,x1-x0),yR);ctx.stroke();
+  ctx.fillStyle=PAL.eqr;ctx.font='bold 11px Arial';ctx.fillText('mean free path λ = '+fmtLen(C.lam)+(lpx>x1-x0?' (longer than the 1 cm source →)':''),x0,yR-5);
+  ctx.fillStyle=PAL.muted;ctx.font='11px Arial';ctx.fillText((S.mode==='EI'?'EI: electrons hit analyte molecules directly':'CI: electrons ionize the reagent gas (orange); reagent ions transfer protons to analyte (blue)')+'  ·  ions made '+(A.n.ion+A.n.pt)+', fragmented '+A.n.frag,8,16);}
+
+boot();
+})();
+</script>
+</body>
+</html>
