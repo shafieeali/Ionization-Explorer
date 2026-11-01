@@ -186,7 +186,7 @@ function buildPanel(){
   else groups.filter(function(g){return g.id===pgroup;})[0].render(box);
   var rb=document.createElement('button');rb.type='button';rb.className='btn';rb.style.marginTop='12px';rb.textContent='Reset all to defaults';
   rb.addEventListener('click',function(){APP.reset();buildPanel();update(true);});box.appendChild(rb);
-  if(APP.S)refreshEq();if(APP.tabVals)APP.tabVals();
+  if(APP.S){APP.compute();refreshEq();}if(APP.tabVals)APP.tabVals();
 }
 function tabVal(id,txt){var a=$('pv-'+id);if(a)a.textContent=txt;var b=$('gh-'+id);if(b)b.textContent=txt;}
 function setFold(c){var r=document.querySelector('.right');r.classList.toggle('collapsed',c);var f=$('fold');f.textContent=c?'▴':'▾';f.setAttribute('aria-expanded',c?'false':'true');f.setAttribute('aria-label',c?'Show the controls':'Hide the controls to enlarge the view');}
@@ -247,9 +247,9 @@ function molInline(d,ion,s,col){var m=molSVG(d,ion,s,col);return '<svg width="'+
 function chain(n,dx,dy){var a=[];for(var i=0;i<n;i++)a.push({x:(dx||0)+i*0.866,y:(dy||0)+(i%2)*0.5});var b=[];for(i=1;i<n;i++)b.push([i-1,i,1]);return {a:a,b:b};}
 /* ===== data ===== */
 var KB=1.380649e-23,TORR=133.322,EV=96.485,LSRC=0.01;
-var GAS={CH4:{n:'Methane',ion:'CH₅⁺',pa:543.5,d:3.8e-10,M:16,ad:[[29,'[M+C₂H₅]⁺',0.08],[41,'[M+C₃H₅]⁺',0.03]],extra:'CH₄ also gives C₂H₅⁺ (PA of ethylene 680.5 kJ/mol), a milder reagent'},
- H2:{n:'Hydrogen',ion:'H₃⁺',pa:422.3,d:2.9e-10,M:2,ad:[]},iC4:{n:'Isobutane',ion:'t-C₄H₉⁺',pa:802.1,d:5.0e-10,M:58,ad:[[57,'[M+C₄H₉]⁺',0.05]]},
- NH3:{n:'Ammonia',ion:'NH₄⁺',pa:853.6,d:2.6e-10,M:17,ad:[[18,'[M+NH₄]⁺',0]]},Ar:{n:'Argon (charge exchange)',ion:'Ar⁺•',re:15.76,d:3.4e-10,M:40,ad:[]}};
+var GAS={CH4:{n:'Methane',ion:'CH₅⁺',gie:12.61,pa:543.5,d:3.8e-10,M:16,ad:[[29,'[M+C₂H₅]⁺',0.08],[41,'[M+C₃H₅]⁺',0.03]],extra:'CH₄ also gives C₂H₅⁺ (PA of ethylene 680.5 kJ/mol), a milder reagent'},
+ H2:{n:'Hydrogen',ion:'H₃⁺',gie:15.43,pa:422.3,d:2.9e-10,M:2,ad:[]},iC4:{n:'Isobutane',ion:'t-C₄H₉⁺',gie:10.68,pa:802.1,d:5.0e-10,M:58,ad:[[57,'[M+C₄H₉]⁺',0.05]]},
+ NH3:{n:'Ammonia',ion:'NH₄⁺',gie:10.07,pa:853.6,d:2.6e-10,M:17,ad:[[18,'[M+NH₄]⁺',0]]},Ar:{n:'Argon (charge exchange)',ion:'Ar⁺•',gie:15.76,re:15.76,d:3.4e-10,M:40,ad:[]}};
 function A_(a,b){return {a:a,b:b};}
 var ANA={
  ethanol:{n:'Ethanol',f:'C₂H₅OH',M:46,pa:776.4,ie:10.48,e0:130,frag:[[29,'C₂H₅⁺ (loss of H₂O)']],
@@ -277,8 +277,9 @@ function compute(){
   var over=S.eV-a.ie;C.eff=over<=0?0:(1-Math.exp(-over/18));C.fragW=over<=0?0:clamp((S.eV-a.ie-1.5)/25,0,1);
   var ei=a.ei.map(function(p){var isM=p[0]===a.M;return {mz:p[0],r:isM?p[1]:p[1]*C.fragW,l:p[2]};});
   var mxe=Math.max.apply(null,ei.map(function(p){return p.r;}))||1;ei.forEach(function(p){p.r/=mxe;});C.eiSpec=ei;
-  if(S.mode==='EI'){C.spec=ei;C.eta=0;return;}
-  C.eta=1-Math.exp(-C.coll/3);
+  C.eiOK=over>0;if(!C.eiOK)ei=[];C.eiSpec=ei;
+  if(S.mode==='EI'){C.spec=ei;C.eta=0;C.why=C.eiOK?'':'No ions: '+S.eV+' eV electrons are below the ionization energy of '+a.n.toLowerCase()+' ('+a.ie+' eV).';finish();return;}
+  C.gasOK=S.eV>g.gie;C.eta=C.gasOK?1-Math.exp(-C.coll/3):0;
   var ci=[],E;
   if(g.re){E=(g.re-a.ie)*EV;C.E=E;ci=ei.map(function(p){var isM=p.mz===a.M;return {mz:p.mz,r:isM?p.r*0.6:p.r,l:p.l};});C.kind='Charge exchange: M⁺• with RE − IE';}
   else{E=a.pa-g.pa;C.E=E;
@@ -290,11 +291,16 @@ function compute(){
   var mix={};function add(p,w){var k=p.mz;if(!mix[k])mix[k]={mz:k,r:0,l:p.l};mix[k].r+=p.r*w;if(!mix[k].l)mix[k].l=p.l;}
   ci.forEach(function(p){add(p,C.eta);});ei.forEach(function(p){add(p,1-C.eta);});
   var sp=Object.keys(mix).map(function(k){return mix[k];}),mx=Math.max.apply(null,sp.map(function(p){return p.r;}))||1;sp.forEach(function(p){p.r/=mx;});C.spec=sp.filter(function(p){return p.r>0.004;});
+  C.why=C.spec.length?'':'No ions: '+S.eV+' eV electrons can ionize neither the reagent gas (IE '+g.gie+' eV) nor the analyte (IE '+a.ie+' eV).';
+  if(!C.gasOK&&C.spec.length)C.why='Electrons below the reagent gas IE ('+g.gie+' eV): no reagent ions, so no CI; only direct EI of the analyte.';
+  finish();
 }
+function finish(){var tot=0,fr=0;C.spec.forEach(function(p){tot+=p.r;if(p.mz<C.a.M)fr+=p.r;});C.fragFrac=tot?fr/tot:0;}
 function anaInline(ion,s){return molInline(C.a.s,ion,s,'var(--c0)');}
-APP.live=function(){var a=C.a,base=C.spec.reduce(function(x,y){return y.r>x.r?y:x;});
-  var soft=S.mode==='CI'&&C.eta>0.5&&!(C.g&&C.g.re)&&(C.f==null||C.f<0.5)&&C.E>=0;
-  $('live').innerHTML='<div class="l1"><span class="h">'+(S.mode==='EI'?'EI':'CI · '+C.g.n.split(' ')[0])+': base peak m/z '+base.mz+'</span><span class="sub">'+(base.l||'')+'</span><span class="st" style="color:'+(soft?'var(--good)':'var(--warn)')+'">'+(soft?'Soft ionization':'Hard: many fragments')+'</span></div>'
+APP.live=function(){var a=C.a;
+  if(!C.spec.length){$('live').innerHTML='<div class="l1"><span class="h">No ions formed</span><span class="st" style="color:var(--alert)">Raise the electron energy</span></div><div class="l2"><span>'+C.why+'</span></div>';return;}
+  var base=C.spec.reduce(function(x,y){return y.r>x.r?y:x;}),soft=C.fragFrac<0.3;
+  $('live').innerHTML='<div class="l1"><span class="h">'+(S.mode==='EI'?'EI':'CI · '+C.g.n.split(' ')[0])+': base peak m/z '+base.mz+'</span><span class="sub">'+(base.l||'')+'</span><span class="st" style="color:'+(soft?'var(--good)':'var(--warn)')+'">'+(soft?'Soft: ':'Hard: ')+Math.round(C.fragFrac*100)+'% fragment ions'+'</span></div>'
    +'<div class="l2"><span>λ = '+fmtLen(C.lam)+'</span><span>'+sig(C.coll,2)+' collisions in 1 cm</span>'+(S.mode==='CI'?'<span>'+(C.g.re?'E = RE − IE':'E = PA(M) − PA(B)')+' = '+Math.round(C.E)+' kJ/mol</span>':'<span>'+S.eV+' eV electrons</span>')+'</div>';};
 function fmtLen(m){if(m>=1)return sig(m,2)+' m';if(m>=0.01)return sig(m*100,2)+' cm';if(m>=0.001)return sig(m*1000,2)+' mm';return sig(m*1e6,2)+' µm';}
 function fmtP(p){return p>=0.01?sig(p,2)+' torr':sci(p,1)+' torr';}
@@ -333,12 +339,13 @@ function bars(svg,peaks,x0,x1,opt){var wh=svgSize(svg),W=wh[0],H=wh[1],PL=34,PR=
   return {X:X,Y:Y,W:W,H:H};}
 var ANI=null;
 VIEWS=[
- {id:'src',label:'Ion source',enter:function(){aniInit();},reset:function(){aniInit();},step:function(dt){aniStep(dt);},draw:function(){aniDraw();}},
+ {id:'src',label:'Ion source',enter:function(){aniInit();},reset:function(){aniInit();},resize:function(){aniInit();},step:function(dt){aniStep(dt);},draw:function(){if(!ANI||ANI.sig!==aniSig())aniInit();aniDraw();}},
  {id:'spec',label:'Spectrum',draw:function(){if(!$('v-spec').classList.contains('on'))return;var a=C.a,ci=S.mode==='CI'&&C.eta>0.5;
    $('formsS').innerHTML='<div class="fm" style="color:var(--c0)">'+anaInline(false,window.innerWidth<480?8:10)+'<b>'+a.n+'</b><span>M = '+a.M+'</span></div><div class="fm" style="color:var(--c0);justify-content:center"><b style="font-size:1rem">→</b></div>'
      +'<div class="fm" style="color:var(--c0)">'+(ci&&!C.g.re&&C.E>=0?anaInline(true,window.innerWidth<480?8:10)+'<b>[M+H]⁺</b><span>m/z '+(a.M+1)+'</span>':anaInline(false,window.innerWidth<480?8:10)+'<b>M⁺•</b><span>m/z '+a.M+' (one electron removed)</span>')+'</div>'
-     +'<div class="fm" style="max-width:15em;text-align:left;justify-content:center"><span>'+(S.mode==='EI'?'70 eV electrons leave a lot of excess energy, so M⁺• breaks apart.':(C.eta<0.5?'Too few collisions at this pressure: most ions still come from electron ionization.':C.kind))+'</span></div>';
-   var mx=Math.max(a.M+(S.mode==='CI'?60:15),60);bars($('spsv'),C.spec,10,Math.ceil(mx/10)*10,{PT:38});}},
+     +'<div class="fm" style="max-width:15em;text-align:left;justify-content:center"><span>'+(C.why?C.why:S.mode==='EI'?S.eV+' eV electrons leave excess energy in M⁺•, so it often breaks apart.':(C.eta<0.5?'Too few collisions at this pressure: most ions still come from electron ionization.':C.kind))+'</span></div>';
+   var mx=Math.max(a.M+(S.mode==='CI'?60:15),60),gg=bars($('spsv'),C.spec,10,Math.ceil(mx/10)*10,{PT:38});
+   if(!C.spec.length)$('spsv').appendChild(el('text',{x:gg.W/2,y:gg.H/2,'text-anchor':'middle','font-size':13,'font-weight':'bold',fill:'var(--alert)','class':'halo'},'No ions: electrons too weak to ionize anything'));}},
  {id:'energy',label:'Energy',draw:function(){if(!$('v-energy').classList.contains('on'))return;var svg=$('ensv'),wh=svgSize(svg),W=wh[0],H=wh[1],a=C.a,keys=Object.keys(GAS),PL=W<480?92:150,PR=14,PT=30,row=(H-PT-36)/keys.length,mx=700;
    function X(e){return PL+clamp(e,0,mx)/mx*(W-PL-PR);}
    for(var t=0;t<=mx;t+=100){svg.appendChild(el('line',{x1:X(t),y1:PT,x2:X(t),y2:H-36,'class':'gl'}));svg.appendChild(el('text',{x:X(t),y:H-22,'text-anchor':'middle','class':'tk'},String(t)));}
@@ -369,10 +376,11 @@ APP.views=VIEWS;
 /* ===== ion source animation ===== */
 var cv=null,ctx=null,AW=600,AH=300;
 function aniSize(){cv=$('srcv');var r=cv.getBoundingClientRect();if(!r.width)return false;var d=Math.min(2,window.devicePixelRatio||1);AW=r.width;AH=r.height;cv.width=AW*d;cv.height=AH*d;ctx=cv.getContext('2d');ctx.setTransform(d,0,0,d,0,0);return true;}
-function aniInit(){if(!aniSize())return;var nGas=S.mode==='EI'?0:Math.round(clamp(6+28*(Math.log10(S.P)+7),0,220)),parts=[];
-  function rnd(t){return {x:50+Math.random()*(AW-100),y:40+Math.random()*(AH-90),vx:gauss()*40,vy:gauss()*40,t:t,life:0};}
-  for(var i=0;i<nGas;i++)parts.push(rnd('gas'));for(i=0;i<10;i++)parts.push(rnd('ana'));ANI={p:parts,e:[],te:0,mfp:Math.min(1,C.lam/LSRC),n:{ion:0,pt:0,frag:0},rnd:rnd};}
-function aniStep(dt){if(!ANI||!ctx)return;var A=ANI,x0=50,x1=AW-50,y0=40,y1=AH-50,mid=(y0+y1)/2;A.te+=dt;
+function aniSig(){return [S.mode,S.gas,S.ana,Math.round(Math.log10(S.P)*4),C.eiOK,C.gasOK].join('|');}
+function aniInit(){if(!aniSize())return;var lp=Math.log10(S.P),nGas=Math.round(clamp(250*Math.pow(clamp((lp+7)/8,0,1),2.2),0,260)),parts=[];
+  function rnd(t){return {x:50+Math.random()*(AW-100),y:52+Math.random()*(AH-104),vx:gauss()*40,vy:gauss()*40,t:t,life:0};}
+  for(var i=0;i<nGas;i++)parts.push(rnd('gas'));for(i=0;i<10;i++)parts.push(rnd('ana'));ANI={p:parts,e:[],te:0,mfp:Math.min(1,C.lam/LSRC),n:{ion:0,pt:0,frag:0},rnd:rnd,sig:aniSig(),nGas:nGas};}
+function aniStep(dt){if(!ANI||!ctx)return;var A=ANI,x0=50,x1=AW-50,y0=48,y1=AH-50,mid=(y0+y1)/2;A.te+=dt;
   if(A.te>0.05){A.te=0;A.e.push({x:x0,y:mid+gauss()*6});}
   A.e.forEach(function(e){e.x+=520*dt;});A.e=A.e.filter(function(e){return e.x<x1&&!e.dead;});
   A.p.forEach(function(p){
@@ -381,23 +389,25 @@ function aniStep(dt){if(!ANI||!ctx)return;var A=ANI,x0=50,x1=AW-50,y0=40,y1=AH-5
     p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.y<y0||p.y>y1)p.vy=-p.vy;if(p.x<x0&&p.vx<0)p.vx=-p.vx;
     if(p.x>x1){if(p.t==='aion'||p.t==='frag'){p.gone=true;}else p.vx=-Math.abs(p.vx);}});
   A.e.forEach(function(e){A.p.forEach(function(p){if(e.dead||p.t==='aion'||p.t==='rion'||p.t==='frag')return;if(Math.abs(p.x-e.x)<6&&Math.abs(p.y-e.y)<7&&Math.random()<0.35){e.dead=true;
-      if(p.t==='gas'){p.t='rion';p.life=0;}else{p.t='aion';p.ei=true;p.life=0;A.n.ion++;if(Math.random()<C.fragW*0.75){p.t='frag';var q=A.rnd('frag');q.x=p.x;q.y=p.y;q.vx=p.vx+80;q.vy=p.vy+gauss()*80;A.p.push(q);A.n.frag++;}}}});});
+      if(p.t==='gas'){if(S.mode==='EI'||!C.gasOK){e.dead=false;return;}p.t='rion';p.life=0;}else{if(!C.eiOK){e.dead=false;return;}p.t='aion';p.ei=true;p.life=0;A.n.ion++;if(Math.random()<C.fragW*0.75){p.t='frag';var q=A.rnd('frag');q.x=p.x;q.y=p.y;q.vx=p.vx+80;q.vy=p.vy+gauss()*80;A.p.push(q);A.n.frag++;}}}});});
   if(S.mode==='CI'){A.p.forEach(function(r){if(r.t!=='rion')return;A.p.forEach(function(p){if(p.t!=='ana')return;if(Math.hypot(p.x-r.x,p.y-r.y)<8){r.t='gas';var up=C.g.re?false:C.E<0;
       if(S.gas==='NH3'&&C.E<0&&C.E>-110){p.t='aion';p.adduct=true;p.life=0;A.n.pt++;return;}if(up&&Math.random()<0.85)return;
       p.t='aion';p.ei=!!C.g.re;p.life=0;A.n.pt++;var ff=C.g.re?0.8:(C.f||0);if(Math.random()<ff){p.t='frag';var q=A.rnd('frag');q.x=p.x;q.y=p.y;q.vx=p.vx+80;q.vy=p.vy+gauss()*80;A.p.push(q);A.n.frag++;}}});});}
   A.p=A.p.filter(function(p){return !p.gone;});var na=A.p.filter(function(p){return p.t==='ana';}).length;while(na<10){A.p.push(A.rnd('ana'));na++;}
   A.p.forEach(function(p){if(p.t==='rion'&&p.life>2.5)p.t='gas';});}
-function aniDraw(){if(!ANI||!ctx)return;var A=ANI,x0=50,x1=AW-50,y0=40,y1=AH-50,mid=(y0+y1)/2;ctx.clearRect(0,0,AW,AH);
+function aniDraw(){if(!ANI||!ctx)return;var A=ANI,x0=50,x1=AW-50,y0=48,y1=AH-50,mid=(y0+y1)/2;ctx.clearRect(0,0,AW,AH);
   ctx.strokeStyle=PAL.muted;ctx.lineWidth=1.2;ctx.strokeRect(x0,y0-6,x1-x0,y1-y0+12);
   ctx.strokeStyle=PAL.c4;ctx.lineWidth=2;ctx.beginPath();for(var i=0;i<6;i++){ctx.lineTo(x0-10+(i%2?6:0),mid-15+i*6);}ctx.stroke();
-  ctx.fillStyle=PAL.muted;ctx.font='11px Arial';ctx.fillText('filament',4,mid-20);ctx.fillText('to mass analyzer →',x1-100,y0-12);
+  ctx.fillStyle=PAL.muted;ctx.font='11px Arial';ctx.fillText('filament',4,mid-20);ctx.fillText('to mass analyzer →',x1-108,y0+13);
   ctx.fillStyle=PAL.c4;A.e.forEach(function(e){ctx.fillRect(e.x-1.5,e.y-1,3,2);});
-  A.p.forEach(function(p){var col={gas:PAL.support,ana:PAL.c0,rion:PAL.c4,aion:PAL.c0,frag:PAL.c3}[p.t];ctx.beginPath();ctx.arc(p.x,p.y,p.t==='gas'?2.6:4.2,0,Math.PI*2);
+  A.p.forEach(function(p){var col={gas:S.mode==='EI'?PAL.muted:PAL.c4,ana:PAL.c0,rion:PAL.c4,aion:PAL.c0,frag:PAL.c3}[p.t];ctx.beginPath();ctx.arc(p.x,p.y,p.t==='gas'?2.4:4.6,0,Math.PI*2);if(p.t==='gas')ctx.globalAlpha=S.mode==='EI'?0.7:0.45;
     if(p.t==='aion'||p.t==='rion'||p.t==='frag'){ctx.fillStyle=PAL.bg;ctx.fill();ctx.strokeStyle=p.t==='rion'?PAL.c4:PAL.eqr;ctx.lineWidth=1.8;ctx.stroke();ctx.fillStyle=p.t==='rion'?PAL.c4:PAL.eqr;ctx.font='bold 8px Arial';ctx.textAlign='center';ctx.fillText('+',p.x,p.y+3);ctx.textAlign='left';}
-    else{ctx.fillStyle=col;ctx.fill();}});
+    else{ctx.fillStyle=col;ctx.fill();}ctx.globalAlpha=1;});
   var lpx=(C.lam/LSRC)*(x1-x0),yR=AH-22;ctx.strokeStyle=PAL.eqr;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x0,yR);ctx.lineTo(x0+Math.min(lpx,x1-x0),yR);ctx.stroke();
   ctx.fillStyle=PAL.eqr;ctx.font='bold 11px Arial';ctx.fillText('mean free path λ = '+fmtLen(C.lam)+(lpx>x1-x0?' (longer than the 1 cm source →)':''),x0,yR-5);
-  ctx.fillStyle=PAL.muted;ctx.font='11px Arial';ctx.fillText((S.mode==='EI'?'EI: electrons hit analyte molecules directly':'CI: electrons ionize the reagent gas (orange); reagent ions transfer protons to analyte (blue)')+'  ·  ions made '+(A.n.ion+A.n.pt)+', fragmented '+A.n.frag,8,16);}
+  ctx.fillStyle=PAL.ink;ctx.font='bold 12px Arial';ctx.fillText(fmtP(S.P)+': '+(A.nGas<5?'almost empty':A.nGas<60?'some gas':'packed with gas')+'; each ion collides about '+sig(C.coll,2)+' times on its way out',8,16);
+  ctx.fillStyle=PAL.muted;ctx.font='11px Arial';ctx.fillText(S.mode==='EI'?'EI: electrons hit analyte molecules (blue) directly; gray = the few residual gas molecules':'CI: reagent gas (orange) fills the source; electrons ionize it, reagent ions pass protons to the analyte (blue)',8,32);
+  ctx.fillText('ions made '+(A.n.ion+A.n.pt)+' · fragmented '+A.n.frag,Math.max(8,x1-150),AH-6);}
 
 boot();
 })();
